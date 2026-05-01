@@ -29,7 +29,7 @@ const ExcelUploader = ({ onDataLoaded }) => {
           return;
         }
 
-        onDataLoaded(jsonData);
+        onDataLoaded(jsonData, file.name);
       } catch (err) {
         console.error("Error parsing Excel:", err);
         setError("Error al leer el archivo Excel. Asegúrate de que sea un formato válido (.xlsx, .xls).");
