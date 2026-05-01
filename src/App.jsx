@@ -1,31 +1,32 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import LoginPage from './pages/LoginPage';
 import ExcelUploader from './components/ExcelUploader';
 import ClientsTable from './components/ClientsTable';
-import { Users, Loader2, Plus, Search, Filter } from 'lucide-react';
+import { Users, Loader2, Plus, Search, Filter, LogOut } from 'lucide-react';
 import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/clientes';
 
-function App() {
+function Dashboard() {
   const [clients, setClients] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showUploader, setShowUploader] = useState(false);
-
-  // Estados para filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('Todos');
+  const { getAuthHeaders, logout, usuario } = useAuth();
 
   const fetchClients = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(API_URL);
+      const res = await fetch(API_URL, { headers: getAuthHeaders() });
+      if (res.status === 401) { logout(); return; }
       if (!res.ok) throw new Error('Error fetching clients');
       const data = await res.json();
       setClients(data);
-      // Si no hay clientes al cargar, mostrar el uploader
-      if (data.length === 0) {
-        setShowUploader(true);
-      }
+      if (data.length === 0) setShowUploader(true);
     } catch (error) {
       console.error(error);
     } finally {
@@ -33,20 +34,17 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    fetchClients();
-  }, []);
+  useEffect(() => { fetchClients(); }, []);
 
   const handleDataLoaded = async (data, fileName) => {
     try {
       setIsLoading(true);
       const res = await fetch(`${API_URL}/bulk`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ clients: data, fileName })
       });
       if (!res.ok) throw new Error('Error saving clients to database');
-      
       setShowUploader(false);
       await fetchClients();
     } catch (error) {
@@ -56,37 +54,28 @@ function App() {
   };
 
   const updateClientStatus = async (clientIndex, newStatus) => {
-    // clientIndex is the index from the FILTERED array, so we need the original client
     const filteredClient = filteredClients[clientIndex];
-    if (!filteredClient || !filteredClient.id) return;
-
+    if (!filteredClient?.id) return;
     try {
       const res = await fetch(`${API_URL}/${filteredClient.id}/estado`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ estado_gestion: newStatus })
       });
-
       if (!res.ok) throw new Error('Error updating client');
-      
       const updatedClient = await res.json();
-      
-      // Update in the main array
       setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
     } catch (error) {
       console.error(error);
     }
   };
 
-  // Filtrado
   const filteredClients = clients.filter(client => {
-    const matchesSearch = 
+    const matchesSearch =
       (client.nombre || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (client.rut || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (client.apellidos || '').toLowerCase().includes(searchTerm.toLowerCase());
-    
     const matchesStatus = filterStatus === 'Todos' || client.estado_gestion === filterStatus;
-
     return matchesSearch && matchesStatus;
   });
 
@@ -100,14 +89,16 @@ function App() {
         <div className="header-actions">
           <div className="header-stats">
             <span className="stat-badge">{clients.length} Total</span>
-            <span className="stat-badge pending">{clients.filter(c => c.estado_gestion === 'Sin gestión').length} Pendientes</span>
+            <span className="stat-badge pending">
+              {clients.filter(c => c.estado_gestion === 'Sin gestión').length} Pendientes
+            </span>
           </div>
-          <button 
-            className="btn btn-primary"
-            onClick={() => setShowUploader(!showUploader)}
-          >
+          <button className="btn btn-primary" onClick={() => setShowUploader(!showUploader)}>
             <Plus size={18} />
             {showUploader ? 'Ocultar Carga' : 'Cargar Clientes'}
+          </button>
+          <button className="btn btn-logout" onClick={logout} title={`Cerrar sesión (${usuario?.nombre})`}>
+            <LogOut size={18} />
           </button>
         </div>
       </header>
@@ -125,24 +116,20 @@ function App() {
                 <ExcelUploader onDataLoaded={handleDataLoaded} />
               </section>
             )}
-
             <section className="table-section">
               <div className="filters-bar glass-panel">
                 <div className="search-box">
                   <Search size={18} className="search-icon" />
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="Buscar por nombre, rut o apellido..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={e => setSearchTerm(e.target.value)}
                   />
                 </div>
                 <div className="filter-box">
                   <Filter size={18} className="filter-icon" />
-                  <select 
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                  >
+                  <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                     <option value="Todos">Todos los estados</option>
                     <option value="Sin gestión">Sin gestión</option>
                     <option value="Gestionado">Gestionado</option>
@@ -162,6 +149,23 @@ function App() {
         )}
       </main>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 
