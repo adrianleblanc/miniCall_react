@@ -4,9 +4,10 @@ import { useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import UsersPage from './pages/UsersPage';
+import ReportsPage from './pages/ReportsPage';
 import ExcelUploader from './components/ExcelUploader';
 import ClientsTable from './components/ClientsTable';
-import { Users, Loader2, Plus, Search, Filter, LogOut, Settings } from 'lucide-react';
+import { Users, Loader2, Plus, Search, Filter, LogOut, Settings, BarChart3 } from 'lucide-react';
 import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/clientes';
@@ -20,6 +21,7 @@ function Dashboard() {
   const { getAuthHeaders, logout, usuario } = useAuth();
 
   const canUpload = usuario?.rol === 'admin' || usuario?.rol === 'supervisor';
+  const canSeeReports = usuario?.rol === 'admin' || usuario?.rol === 'supervisor';
 
   const fetchClients = async () => {
     try {
@@ -104,6 +106,13 @@ function Dashboard() {
             </button>
           )}
 
+          {canSeeReports && (
+            <Link to="/reportes" className="btn btn-secondary" title="Ver Reportes">
+              <BarChart3 size={18} />
+              <span className="hide-mobile">Reportes</span>
+            </Link>
+          )}
+
           {usuario?.rol === 'admin' && (
             <Link to="/usuarios" className="btn btn-secondary" title="Gestionar Usuarios">
               <Settings size={18} />
@@ -183,6 +192,14 @@ function App() {
         element={
           <ProtectedRoute roles={['admin']}>
             <UsersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reportes"
+        element={
+          <ProtectedRoute roles={['admin', 'supervisor']}>
+            <ReportsPage />
           </ProtectedRoute>
         }
       />
