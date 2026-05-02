@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
+import UsersPage from './pages/UsersPage';
 import ExcelUploader from './components/ExcelUploader';
 import ClientsTable from './components/ClientsTable';
-import { Users, Loader2, Plus, Search, Filter, LogOut } from 'lucide-react';
+import { Users, Loader2, Plus, Search, Filter, LogOut, Settings } from 'lucide-react';
 import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/clientes';
@@ -18,6 +19,8 @@ function Dashboard() {
   const [filterStatus, setFilterStatus] = useState('Todos');
   const { getAuthHeaders, logout, usuario } = useAuth();
 
+  const canUpload = usuario?.rol === 'admin' || usuario?.rol === 'supervisor';
+
   const fetchClients = async () => {
     try {
       setIsLoading(true);
@@ -26,7 +29,7 @@ function Dashboard() {
       if (!res.ok) throw new Error('Error fetching clients');
       const data = await res.json();
       setClients(data);
-      if (data.length === 0) setShowUploader(true);
+      if (data.length === 0 && canUpload) setShowUploader(true);
     } catch (error) {
       console.error(error);
     } finally {
@@ -93,10 +96,21 @@ function Dashboard() {
               {clients.filter(c => c.estado_gestion === 'Sin gestión').length} Pendientes
             </span>
           </div>
-          <button className="btn btn-primary" onClick={() => setShowUploader(!showUploader)}>
-            <Plus size={18} />
-            {showUploader ? 'Ocultar Carga' : 'Cargar Clientes'}
-          </button>
+          
+          {canUpload && (
+            <button className="btn btn-primary" onClick={() => setShowUploader(!showUploader)}>
+              <Plus size={18} />
+              {showUploader ? 'Ocultar Carga' : 'Cargar Clientes'}
+            </button>
+          )}
+
+          {usuario?.rol === 'admin' && (
+            <Link to="/usuarios" className="btn btn-secondary" title="Gestionar Usuarios">
+              <Settings size={18} />
+              <span className="hide-mobile">Usuarios</span>
+            </Link>
+          )}
+
           <button className="btn btn-logout" onClick={logout} title={`Cerrar sesión (${usuario?.nombre})`}>
             <LogOut size={18} />
           </button>
@@ -111,7 +125,7 @@ function Dashboard() {
           </div>
         ) : (
           <div className="dashboard-layout animate-fade-in">
-            {showUploader && (
+            {showUploader && canUpload && (
               <section className="upload-section-inline glass-panel animate-fade-in">
                 <ExcelUploader onDataLoaded={handleDataLoaded} />
               </section>
@@ -139,7 +153,7 @@ function Dashboard() {
 
               {clients.length === 0 ? (
                 <div className="empty-state glass-panel">
-                  <p>No hay clientes en la base de datos. Utiliza el botón "Cargar Clientes" para subir tu primer Excel.</p>
+                  <p>No hay clientes en la base de datos. {canUpload && 'Utiliza el botón "Cargar Clientes" para subir tu primer Excel.'}</p>
                 </div>
               ) : (
                 <ClientsTable clients={filteredClients} onUpdateStatus={updateClientStatus} />
@@ -161,6 +175,14 @@ function App() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/usuarios"
+        element={
+          <ProtectedRoute roles={['admin']}>
+            <UsersPage />
           </ProtectedRoute>
         }
       />
