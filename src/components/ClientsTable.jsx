@@ -21,6 +21,7 @@ const ClientsTable = ({ clients, onUpdateStatus }) => {
               <th className="action-column">Acción</th>
               <th>Estado gestión</th>
               <th>Última gestión</th>
+              <th>Gestionado por</th>
             </tr>
           </thead>
           <tbody>
@@ -76,6 +77,11 @@ const ClientsTable = ({ clients, onUpdateStatus }) => {
                       {client.ultima_gestion 
                         ? new Date(client.ultima_gestion).toLocaleString() 
                         : '-'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="cell-value">
+                      {client.gestionado_por || '-'}
                     </span>
                   </td>
                 </tr>
